@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -50,6 +51,21 @@ class User extends Authenticatable
     public function rol(): BelongsTo
     {
         return $this->belongsTo(Rol::class, 'rol_id');
+    }
+
+    public function mecanicos(): HasMany
+    {
+        return $this->hasMany(Mecanico::class, 'usuario_id');
+    }
+
+    public function herramientas(): HasMany
+    {
+        return $this->hasMany(Herramienta::class, 'usuario_id');
+    }
+
+    public function prestamos(): HasMany
+    {
+        return $this->hasMany(Prestamo::class, 'usuario_id');
     }
 
     public function estaActivo(): bool
