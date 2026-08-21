@@ -1,6 +1,14 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\HerramientaController;
+use App\Http\Controllers\HerramientaUnidadController;
+use App\Http\Controllers\MarcaController;
+use App\Http\Controllers\MecanicoController;
+use App\Http\Controllers\PrestamoController;
+use App\Http\Controllers\RolController;
+use App\Http\Controllers\UbicacionController;
 use App\Http\Controllers\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,7 +32,35 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('usuario.activo')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
 
+        Route::patch('/categorias/{categoria}/estado', [CategoriaController::class, 'cambiarEstado']);
+        Route::apiResource('categorias', CategoriaController::class);
+
+        Route::patch('/ubicaciones/{ubicacion}/estado', [UbicacionController::class, 'cambiarEstado']);
+        Route::apiResource('ubicaciones', UbicacionController::class);
+
+        Route::patch('/marcas/{marca}/estado', [MarcaController::class, 'cambiarEstado']);
+        Route::apiResource('marcas', MarcaController::class);
+
+        Route::patch('/mecanicos/{mecanico}/estado', [MecanicoController::class, 'cambiarEstado']);
+        Route::post('/mecanicos/{mecanico}', [MecanicoController::class, 'update']);
+        Route::apiResource('mecanicos', MecanicoController::class);
+
+        Route::patch('/herramientas/{herramienta}/estado', [HerramientaController::class, 'cambiarEstado']);
+        Route::apiResource('herramientas', HerramientaController::class);
+
+        Route::apiResource('herramientas-unidades', HerramientaUnidadController::class)
+            ->parameters(['herramientas-unidades' => 'unidad']);
+
+        Route::get('/prestamos/punto', [PrestamoController::class, 'punto']);
+        Route::get('/prestamos/unidades-disponibles', [PrestamoController::class, 'unidadesDisponibles']);
+        Route::get('/prestamos/en-uso', [PrestamoController::class, 'enUso']);
+        Route::get('/prestamos/mecanicos/{mecanico}', [PrestamoController::class, 'activosDeMecanico']);
+        Route::post('/prestamos', [PrestamoController::class, 'store']);
+        Route::post('/prestamos/detalles/{detalle_prestamo}/devolver', [PrestamoController::class, 'devolverDetalle']);
+        Route::post('/prestamos/mecanicos/{mecanico}/devolver-todas', [PrestamoController::class, 'devolverTodas']);
+
         Route::middleware('can:administrar-usuarios')->group(function () {
+            Route::get('/roles', [RolController::class, 'index']);
             Route::patch('/usuarios/{usuario}/estado', [UsuarioController::class, 'cambiarEstado']);
             Route::apiResource('usuarios', UsuarioController::class);
         });
