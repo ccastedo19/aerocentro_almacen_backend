@@ -46,8 +46,10 @@ class PrestamoController extends Controller
                 'id',
                 'nombre',
                 'apellido',
+                'apodo',
                 'cargo',
                 'imagen',
+                'color',
                 'estado',
             ]);
 
@@ -78,7 +80,7 @@ class PrestamoController extends Controller
         ]);
 
         $detalles = $this->consultaDetallesEnCurso()
-            ->with(['prestamo.mecanico:id,nombre,apellido,cargo,estado,imagen'])
+            ->with(['prestamo.mecanico:id,nombre,apellido,apodo,cargo,estado,imagen,color'])
             ->when($filtros['buscar'] ?? null, function ($consulta, string $buscar) {
                 $consulta->where(function ($subconsulta) use ($buscar) {
                     $subconsulta
@@ -92,6 +94,7 @@ class PrestamoController extends Controller
                             $relacion
                                 ->where('nombre', 'like', "%{$buscar}%")
                                 ->orWhere('apellido', 'like', "%{$buscar}%")
+                                ->orWhere('apodo', 'like', "%{$buscar}%")
                                 ->orWhere('cargo', 'like', "%{$buscar}%");
                         });
                 });
@@ -170,7 +173,7 @@ class PrestamoController extends Controller
         });
 
         $prestamo->load([
-            'mecanico:id,nombre,apellido,cargo,estado,imagen',
+            'mecanico:id,nombre,apellido,apodo,cargo,estado,imagen,color',
             'detalles.unidad.herramienta:id,nombre,categoria_id',
             'detalles.unidad.herramienta.categoria:id,nombre',
             'detalles.unidad.marca:id,nombre',

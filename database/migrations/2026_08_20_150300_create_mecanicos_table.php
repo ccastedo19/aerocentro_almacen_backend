@@ -12,7 +12,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('nombre', 100);
             $table->string('apellido', 100);
-            $table->string('nro_licencia', 50);
+            $table->string('nro_licencia', 50)->nullable();
             $table->string('cargo', 100);
             $table->string('telefono', 30)->nullable();
             $table->string('imagen')->nullable();

@@ -20,6 +20,17 @@ class Mecanico extends Model
 
     public const ESTADO_FUERA_DE_SERVICIO = 2;
 
+    public const COLORES = [
+        'rojo',
+        'amarillo',
+        'verde_claro',
+        'verde_oscuro',
+        'celeste',
+        'azul',
+        'blanco',
+        'naranja',
+    ];
+
     protected $table = 'mecanicos';
 
     public $incrementing = false;
@@ -29,9 +40,11 @@ class Mecanico extends Model
     protected $fillable = [
         'nombre',
         'apellido',
+        'apodo',
         'nro_licencia',
         'cargo',
         'telefono',
+        'color',
         'imagen',
         'estado',
         'usuario_id',

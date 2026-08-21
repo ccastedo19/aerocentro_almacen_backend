@@ -14,9 +14,7 @@ use Throwable;
 
 class MecanicoController extends Controller
 {
-    public function __construct(private readonly MecanicoImagenService $imagenService)
-    {
-    }
+    public function __construct(private readonly MecanicoImagenService $imagenService) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -42,6 +40,7 @@ class MecanicoController extends Controller
                     $subconsulta
                         ->where('nombre', 'like', "%{$buscar}%")
                         ->orWhere('apellido', 'like', "%{$buscar}%")
+                        ->orWhere('apodo', 'like', "%{$buscar}%")
                         ->orWhere('nro_licencia', 'like', "%{$buscar}%")
                         ->orWhere('cargo', 'like', "%{$buscar}%")
                         ->orWhere('telefono', 'like', "%{$buscar}%");
@@ -60,6 +59,7 @@ class MecanicoController extends Controller
         $datos['estado'] = Mecanico::ESTADO_ACTIVO;
         $datos['usuario_id'] = $request->user()->id;
         $datos['telefono'] = $this->telefonoNormalizado($datos['telefono'] ?? null);
+        $datos['apodo'] = $this->textoNormalizado($datos['apodo'] ?? null);
 
         try {
             $mecanico = DB::transaction(function () use ($request, $datos) {
@@ -99,6 +99,10 @@ class MecanicoController extends Controller
 
         if (array_key_exists('telefono', $datos)) {
             $datos['telefono'] = $this->telefonoNormalizado($datos['telefono']);
+        }
+
+        if (array_key_exists('apodo', $datos)) {
+            $datos['apodo'] = $this->textoNormalizado($datos['apodo']);
         }
 
         try {
@@ -191,12 +195,14 @@ class MecanicoController extends Controller
         return [
             'nombre' => [$requerido, 'string', 'max:100'],
             'apellido' => [$requerido, 'string', 'max:100'],
+            'apodo' => ['nullable', 'string', 'max:100'],
             'nro_licencia' => array_merge(
-                [$requerido, 'string', 'max:50'],
+                ['nullable', 'string', 'max:50'],
                 $this->reglaLicenciaUnica($mecanico),
             ),
             'cargo' => [$requerido, 'string', 'max:100'],
             'telefono' => ['nullable', 'string', 'max:30'],
+            'color' => [$requerido, 'string', Rule::in(Mecanico::COLORES)],
             'imagen' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:4096'],
             'eliminar_imagen' => ['sometimes', 'boolean'],
         ];
@@ -226,13 +232,18 @@ class MecanicoController extends Controller
 
     private function telefonoNormalizado(mixed $telefono): ?string
     {
-        if (! is_string($telefono)) {
+        return $this->textoNormalizado($telefono);
+    }
+
+    private function textoNormalizado(mixed $texto): ?string
+    {
+        if (! is_string($texto)) {
             return null;
         }
 
-        $telefono = trim($telefono);
+        $texto = trim($texto);
 
-        return $telefono === '' ? null : $telefono;
+        return $texto === '' ? null : $texto;
     }
 
     private function asegurarSinPrestamosEnCurso(Mecanico $mecanico): void
