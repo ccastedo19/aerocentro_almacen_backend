@@ -68,13 +68,7 @@ class HerramientaUnidadController extends Controller
                             ->where('nombre', 'like', "%{$buscar}%"));
                 });
             })
-            ->orderBy(
-                Herramienta::query()
-                    ->select('nombre')
-                    ->whereColumn('herramientas.id', 'herramientas_unidades.herramienta_id')
-                    ->limit(1),
-            )
-            ->orderBy('herramientas_unidades.created_at')
+            ->orderByDesc('herramientas_unidades.created_at')
             ->paginate($filtros['por_pagina'] ?? 15);
 
         return response()->json($unidades);

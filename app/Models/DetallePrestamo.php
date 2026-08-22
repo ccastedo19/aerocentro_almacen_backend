@@ -48,4 +48,9 @@ class DetallePrestamo extends Model
     {
         return $this->estado === self::ESTADO_EN_CURSO;
     }
+
+    public function estaDevuelto(): bool
+    {
+        return $this->estado === self::ESTADO_DEVUELTO;
+    }
 }

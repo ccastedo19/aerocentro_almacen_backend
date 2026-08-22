@@ -4,6 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\HerramientaController;
 use App\Http\Controllers\HerramientaUnidadController;
+use App\Http\Controllers\HistorialMovimientoController;
+use App\Http\Controllers\InicioController;
 use App\Http\Controllers\MarcaController;
 use App\Http\Controllers\MecanicoController;
 use App\Http\Controllers\PrestamoController;
@@ -31,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('usuario.activo')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
+        Route::get('/inicio', [InicioController::class, 'index']);
 
         Route::patch('/categorias/{categoria}/estado', [CategoriaController::class, 'cambiarEstado']);
         Route::apiResource('categorias', CategoriaController::class);
@@ -50,6 +53,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::apiResource('herramientas-unidades', HerramientaUnidadController::class)
             ->parameters(['herramientas-unidades' => 'unidad']);
+
+        Route::get('/prestamos/historial', [HistorialMovimientoController::class, 'index']);
+        Route::get('/prestamos/historial/general', [HistorialMovimientoController::class, 'general']);
+        Route::get('/prestamos/historial/mecanicos', [HistorialMovimientoController::class, 'mecanicos']);
+        Route::get('/prestamos/historial/mecanicos/{mecanico}', [HistorialMovimientoController::class, 'showMecanico']);
+        Route::get('/prestamos/historial/{herramienta}', [HistorialMovimientoController::class, 'show']);
 
         Route::get('/prestamos/punto', [PrestamoController::class, 'punto']);
         Route::get('/prestamos/unidades-disponibles', [PrestamoController::class, 'unidadesDisponibles']);

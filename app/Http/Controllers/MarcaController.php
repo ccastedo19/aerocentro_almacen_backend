@@ -34,7 +34,7 @@ class MarcaController extends Controller
                         ->orWhere('descripcion', 'like', "%{$buscar}%");
                 });
             })
-            ->orderBy('nombre')
+            ->orderByDesc('created_at')
             ->paginate($filtros['por_pagina'] ?? 15);
 
         return response()->json($marcas);

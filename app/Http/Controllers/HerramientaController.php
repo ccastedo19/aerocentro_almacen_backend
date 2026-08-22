@@ -53,7 +53,7 @@ class HerramientaController extends Controller
                         ->orWhere('descripcion', 'like', "%{$buscar}%");
                 });
             })
-            ->orderBy('nombre')
+            ->orderByDesc('created_at')
             ->paginate($filtros['por_pagina'] ?? 15);
 
         return response()->json($herramientas);
@@ -112,7 +112,7 @@ class HerramientaController extends Controller
             'unidades' => fn ($consulta) => $consulta
                 ->where('estado', '<>', HerramientaUnidad::ESTADO_ELIMINADA)
                 ->with(['marca:id,nombre', 'ubicacion:id,nombre'])
-                ->orderBy('created_at'),
+                ->orderByDesc('created_at'),
         ])->loadCount([
             'unidades as unidades_total' => fn ($consulta) => $consulta
                 ->where('estado', '<>', HerramientaUnidad::ESTADO_ELIMINADA),

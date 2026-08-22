@@ -46,8 +46,7 @@ class MecanicoController extends Controller
                         ->orWhere('telefono', 'like', "%{$buscar}%");
                 });
             })
-            ->orderBy('nombre')
-            ->orderBy('apellido')
+            ->orderByDesc('created_at')
             ->paginate($filtros['por_pagina'] ?? 15);
 
         return response()->json($mecanicos);

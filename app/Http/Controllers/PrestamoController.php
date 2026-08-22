@@ -40,8 +40,7 @@ class PrestamoController extends Controller
                 'detallesPrestamos as prestamos_activos' => fn ($consulta) => $consulta
                     ->where('detalles_prestamos.estado', DetallePrestamo::ESTADO_EN_CURSO),
             ])
-            ->orderBy('nombre')
-            ->orderBy('apellido')
+            ->orderByDesc('created_at')
             ->get([
                 'id',
                 'nombre',
@@ -242,13 +241,7 @@ class PrestamoController extends Controller
                             ->where('nombre', 'like', "%{$buscar}%"));
                 });
             })
-            ->orderBy(
-                Herramienta::query()
-                    ->select('nombre')
-                    ->whereColumn('herramientas.id', 'herramientas_unidades.herramienta_id')
-                    ->limit(1),
-            )
-            ->orderBy('herramientas_unidades.created_at');
+            ->orderByDesc('herramientas_unidades.created_at');
     }
 
     private function consultaDetallesEnCurso()
@@ -263,7 +256,7 @@ class PrestamoController extends Controller
                 'unidad.ubicacion:id,nombre',
             ])
             ->where('detalles_prestamos.estado', DetallePrestamo::ESTADO_EN_CURSO)
-            ->orderBy('detalles_prestamos.created_at');
+            ->orderByDesc('detalles_prestamos.created_at');
     }
 
     private function devolverDetalles($detalles): void

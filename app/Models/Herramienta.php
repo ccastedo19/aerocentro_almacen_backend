@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Herramienta extends Model
 {
@@ -53,6 +54,16 @@ class Herramienta extends Model
     public function unidades(): HasMany
     {
         return $this->hasMany(HerramientaUnidad::class, 'herramienta_id');
+    }
+
+    public function detallesPrestamos(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            DetallePrestamo::class,
+            HerramientaUnidad::class,
+            'herramienta_id',
+            'herramienta_unidad_id',
+        );
     }
 
     public function estaActiva(): bool

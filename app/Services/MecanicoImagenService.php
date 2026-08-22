@@ -8,7 +8,7 @@ use RuntimeException;
 
 class MecanicoImagenService
 {
-    private const CARPETA = 'aerocentro/mecanicos';
+    private const CARPETA = 'Mecanicos Aerocentro';
 
     public function __construct(private readonly Cloudinary $cloudinary)
     {
@@ -23,7 +23,8 @@ class MecanicoImagenService
         }
 
         $resultado = $this->cloudinary->uploadApi()->upload($rutaTemporal, [
-            'public_id' => $this->publicId($mecanicoId),
+            'folder' => self::CARPETA,
+            'public_id' => $mecanicoId,
             'overwrite' => true,
             'invalidate' => true,
             'resource_type' => 'image',
