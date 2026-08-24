@@ -68,6 +68,11 @@ class User extends Authenticatable
         return $this->hasMany(Prestamo::class, 'usuario_id');
     }
 
+    public function backups(): HasMany
+    {
+        return $this->hasMany(Backup::class, 'usuario_id');
+    }
+
     public function estaActivo(): bool
     {
         return $this->estado === self::ESTADO_ACTIVO;

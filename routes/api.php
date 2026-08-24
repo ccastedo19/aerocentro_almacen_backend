@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BackupController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\HerramientaController;
 use App\Http\Controllers\HerramientaUnidadController;
@@ -72,6 +73,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/roles', [RolController::class, 'index']);
             Route::patch('/usuarios/{usuario}/estado', [UsuarioController::class, 'cambiarEstado']);
             Route::apiResource('usuarios', UsuarioController::class);
+
+            Route::get('/backups', [BackupController::class, 'index']);
+            Route::post('/backups', [BackupController::class, 'store']);
+            Route::post('/backups/descargar', [BackupController::class, 'descargar']);
+            Route::post('/backups/{backup}/restaurar', [BackupController::class, 'restaurar']);
         });
     });
 });
