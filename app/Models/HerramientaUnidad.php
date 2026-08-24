@@ -18,6 +18,17 @@ class HerramientaUnidad extends Model
 
     public const ESTADO_PRESTADA = 2;
 
+    public const COLORES = [
+        'rojo',
+        'amarillo',
+        'verde',
+        'azul',
+        'celeste',
+        'blanco',
+        'negro',
+        'naranja',
+    ];
+
     protected $table = 'herramientas_unidades';
 
     public $incrementing = false;
@@ -28,6 +39,9 @@ class HerramientaUnidad extends Model
         'herramienta_id',
         'marca_id',
         'ubicacion_id',
+        'color_primario',
+        'color_secundario',
+        'tamano',
         'fecha_calibracion',
         'proxima_calibracion',
         'estado',

@@ -22,6 +22,7 @@ class UbicacionController extends Controller
         ]);
 
         $ubicaciones = Ubicacion::query()
+            ->with('padre:id,nombre,parent_id')
             ->when(
                 array_key_exists('estado', $filtros),
                 fn ($consulta) => $consulta->where('estado', $filtros['estado']),
@@ -46,18 +47,18 @@ class UbicacionController extends Controller
         $datos['descripcion'] = $this->descripcionNormalizada($datos['descripcion'] ?? null);
         $datos['estado'] = Ubicacion::ESTADO_ACTIVO;
 
-        $ubicacion = Ubicacion::create($datos);
+        $ubicacion = Ubicacion::create($datos)->load('padre:id,nombre,parent_id');
 
         return response()->json([
             'message' => 'Ubicacion creada correctamente.',
-            'ubicacion' => $ubicacion,
+            'ubicacion' => $ubicacion->load('padre:id,nombre,parent_id'),
         ], 201);
     }
 
     public function show(Ubicacion $ubicacion): JsonResponse
     {
         return response()->json([
-            'ubicacion' => $ubicacion,
+            'ubicacion' => $ubicacion->load('padre:id,nombre,parent_id'),
         ]);
     }
 
@@ -73,12 +74,13 @@ class UbicacionController extends Controller
 
         return response()->json([
             'message' => 'Ubicacion actualizada correctamente.',
-            'ubicacion' => $ubicacion->fresh(),
+            'ubicacion' => $ubicacion->fresh()->load('padre:id,nombre,parent_id'),
         ]);
     }
 
     public function destroy(Ubicacion $ubicacion): JsonResponse
     {
+        $this->asegurarSinHijosActivos($ubicacion);
         $this->asegurarSinUnidadesActivas($ubicacion);
 
         $ubicacion->update(['estado' => Ubicacion::ESTADO_ELIMINADO]);
@@ -98,10 +100,12 @@ class UbicacionController extends Controller
         ]);
 
         if ($datos['estado'] === Ubicacion::ESTADO_ELIMINADO) {
+            $this->asegurarSinHijosActivos($ubicacion);
             $this->asegurarSinUnidadesActivas($ubicacion);
         }
 
         if ($datos['estado'] === Ubicacion::ESTADO_ACTIVO) {
+            $this->asegurarPadreActivo($ubicacion);
             validator(
                 ['nombre' => $ubicacion->nombre],
                 ['nombre' => $this->reglaNombreUnico($ubicacion)],
@@ -112,7 +116,7 @@ class UbicacionController extends Controller
 
         return response()->json([
             'message' => 'Estado de la ubicacion actualizado correctamente.',
-            'ubicacion' => $ubicacion->fresh(),
+            'ubicacion' => $ubicacion->fresh()->load('padre:id,nombre,parent_id'),
         ]);
     }
 
@@ -126,6 +130,18 @@ class UbicacionController extends Controller
                 $this->reglaNombreUnico($ubicacion),
             ),
             'descripcion' => ['nullable', 'string', 'max:1000'],
+            'parent_id' => [
+                'nullable',
+                'uuid',
+                Rule::exists('ubicaciones', 'id')->where(
+                    fn ($consulta) => $consulta->where('estado', Ubicacion::ESTADO_ACTIVO),
+                ),
+                function (string $attribute, mixed $value, \Closure $fail) use ($ubicacion): void {
+                    if ($ubicacion && is_string($value) && $ubicacion->creariaCiclo($value)) {
+                        $fail('La ubicacion padre no puede ser la misma ubicacion ni una descendiente.');
+                    }
+                },
+            ],
         ];
     }
 
@@ -167,6 +183,24 @@ class UbicacionController extends Controller
         if ($ubicacion->tieneUnidadesActivas()) {
             throw ValidationException::withMessages([
                 'ubicacion' => ['No se puede eliminar una ubicacion con herramientas activas.'],
+            ]);
+        }
+    }
+
+    private function asegurarSinHijosActivos(Ubicacion $ubicacion): void
+    {
+        if ($ubicacion->tieneHijosActivos()) {
+            throw ValidationException::withMessages([
+                'ubicacion' => ['No se puede eliminar una ubicacion que tiene sububicaciones activas.'],
+            ]);
+        }
+    }
+
+    private function asegurarPadreActivo(Ubicacion $ubicacion): void
+    {
+        if ($ubicacion->parent_id && ! $ubicacion->padre()->where('estado', Ubicacion::ESTADO_ACTIVO)->exists()) {
+            throw ValidationException::withMessages([
+                'ubicacion' => ['No se puede activar una ubicacion cuyo padre no esta activo.'],
             ]);
         }
     }

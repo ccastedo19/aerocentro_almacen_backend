@@ -176,7 +176,7 @@ class HistorialMovimientoController extends Controller
             ->with([
                 'prestamo:id,mecanico_id,usuario_id,fecha_prestamo',
                 'prestamo.mecanico:id,nombre,apellido,apodo,cargo,estado',
-                'unidad:id,herramienta_id,marca_id,ubicacion_id',
+                'unidad:id,herramienta_id,marca_id,ubicacion_id,tamano',
                 'unidad.herramienta:id,nombre,categoria_id',
                 'unidad.herramienta.categoria:id,nombre',
                 'unidad.marca:id,nombre',

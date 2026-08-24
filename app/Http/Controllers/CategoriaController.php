@@ -22,6 +22,7 @@ class CategoriaController extends Controller
         ]);
 
         $categorias = Categoria::query()
+            ->with('padre:id,nombre,parent_id')
             ->when(
                 array_key_exists('estado', $filtros),
                 fn ($consulta) => $consulta->where('estado', $filtros['estado']),
@@ -46,18 +47,18 @@ class CategoriaController extends Controller
         $datos['descripcion'] = $this->descripcionNormalizada($datos['descripcion'] ?? null);
         $datos['estado'] = Categoria::ESTADO_ACTIVO;
 
-        $categoria = Categoria::create($datos);
+        $categoria = Categoria::create($datos)->load('padre:id,nombre,parent_id');
 
         return response()->json([
             'message' => 'Categoria creada correctamente.',
-            'categoria' => $categoria,
+            'categoria' => $categoria->load('padre:id,nombre,parent_id'),
         ], 201);
     }
 
     public function show(Categoria $categoria): JsonResponse
     {
         return response()->json([
-            'categoria' => $categoria,
+            'categoria' => $categoria->load('padre:id,nombre,parent_id'),
         ]);
     }
 
@@ -73,12 +74,13 @@ class CategoriaController extends Controller
 
         return response()->json([
             'message' => 'Categoria actualizada correctamente.',
-            'categoria' => $categoria->fresh(),
+            'categoria' => $categoria->fresh()->load('padre:id,nombre,parent_id'),
         ]);
     }
 
     public function destroy(Categoria $categoria): JsonResponse
     {
+        $this->asegurarSinHijosActivos($categoria);
         $this->asegurarSinHerramientasActivas($categoria);
 
         $categoria->update(['estado' => Categoria::ESTADO_ELIMINADO]);
@@ -98,10 +100,12 @@ class CategoriaController extends Controller
         ]);
 
         if ($datos['estado'] === Categoria::ESTADO_ELIMINADO) {
+            $this->asegurarSinHijosActivos($categoria);
             $this->asegurarSinHerramientasActivas($categoria);
         }
 
         if ($datos['estado'] === Categoria::ESTADO_ACTIVO) {
+            $this->asegurarPadreActivo($categoria);
             validator(
                 ['nombre' => $categoria->nombre],
                 ['nombre' => $this->reglaNombreUnico($categoria)],
@@ -112,7 +116,7 @@ class CategoriaController extends Controller
 
         return response()->json([
             'message' => 'Estado de la categoria actualizado correctamente.',
-            'categoria' => $categoria->fresh(),
+            'categoria' => $categoria->fresh()->load('padre:id,nombre,parent_id'),
         ]);
     }
 
@@ -126,6 +130,18 @@ class CategoriaController extends Controller
                 $this->reglaNombreUnico($categoria),
             ),
             'descripcion' => ['nullable', 'string', 'max:1000'],
+            'parent_id' => [
+                'nullable',
+                'uuid',
+                Rule::exists('categorias', 'id')->where(
+                    fn ($consulta) => $consulta->where('estado', Categoria::ESTADO_ACTIVO),
+                ),
+                function (string $attribute, mixed $value, \Closure $fail) use ($categoria): void {
+                    if ($categoria && is_string($value) && $categoria->creariaCiclo($value)) {
+                        $fail('La categoria padre no puede ser la misma categoria ni una descendiente.');
+                    }
+                },
+            ],
         ];
     }
 
@@ -167,6 +183,24 @@ class CategoriaController extends Controller
         if ($categoria->tieneHerramientasActivas()) {
             throw ValidationException::withMessages([
                 'categoria' => ['No se puede eliminar una categoria con herramientas activas.'],
+            ]);
+        }
+    }
+
+    private function asegurarSinHijosActivos(Categoria $categoria): void
+    {
+        if ($categoria->tieneHijosActivos()) {
+            throw ValidationException::withMessages([
+                'categoria' => ['No se puede eliminar una categoria que tiene subcategorias activas.'],
+            ]);
+        }
+    }
+
+    private function asegurarPadreActivo(Categoria $categoria): void
+    {
+        if ($categoria->parent_id && ! $categoria->padre()->where('estado', Categoria::ESTADO_ACTIVO)->exists()) {
+            throw ValidationException::withMessages([
+                'categoria' => ['No se puede activar una categoria cuyo padre no esta activo.'],
             ]);
         }
     }

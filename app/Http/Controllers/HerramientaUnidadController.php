@@ -60,6 +60,9 @@ class HerramientaUnidadController extends Controller
                 $consulta->where(function ($subconsulta) use ($buscar) {
                     $subconsulta
                         ->where('herramientas_unidades.observaciones', 'like', "%{$buscar}%")
+                        ->orWhere('herramientas_unidades.tamano', 'like', "%{$buscar}%")
+                        ->orWhere('herramientas_unidades.color_primario', 'like', "%{$buscar}%")
+                        ->orWhere('herramientas_unidades.color_secundario', 'like', "%{$buscar}%")
                         ->orWhereHas('herramienta', fn ($relacion) => $relacion
                             ->where('nombre', 'like', "%{$buscar}%"))
                         ->orWhereHas('marca', fn ($relacion) => $relacion
@@ -78,6 +81,8 @@ class HerramientaUnidadController extends Controller
     {
         $datos = $request->validate($this->reglas());
         $datos['observaciones'] = $this->textoNormalizado($datos['observaciones'] ?? null);
+        $datos['tamano'] = $this->textoNormalizado($datos['tamano'] ?? null);
+        $datos = $this->normalizarColores($datos);
         $datos['estado'] = HerramientaUnidad::ESTADO_DISPONIBLE;
 
         $unidad = HerramientaUnidad::create($datos)->load([
@@ -113,6 +118,12 @@ class HerramientaUnidadController extends Controller
         if (array_key_exists('observaciones', $datos)) {
             $datos['observaciones'] = $this->textoNormalizado($datos['observaciones']);
         }
+
+        if (array_key_exists('tamano', $datos)) {
+            $datos['tamano'] = $this->textoNormalizado($datos['tamano']);
+        }
+
+        $datos = $this->normalizarColores($datos);
 
         unset($datos['herramienta_id'], $datos['estado']);
 
@@ -165,6 +176,18 @@ class HerramientaUnidadController extends Controller
                     fn ($consulta) => $consulta->where('estado', Ubicacion::ESTADO_ACTIVO),
                 ),
             ],
+            'color_primario' => [
+                'nullable',
+                'string',
+                Rule::in(HerramientaUnidad::COLORES),
+            ],
+            'color_secundario' => [
+                'nullable',
+                'string',
+                Rule::in(HerramientaUnidad::COLORES),
+                'different:color_primario',
+            ],
+            'tamano' => ['nullable', 'string', 'max:50'],
             'fecha_calibracion' => ['nullable', 'date'],
             'proxima_calibracion' => [
                 'nullable',
@@ -173,6 +196,16 @@ class HerramientaUnidadController extends Controller
             ],
             'observaciones' => ['nullable', 'string', 'max:1000'],
         ];
+    }
+
+    private function normalizarColores(array $datos): array
+    {
+        if (array_key_exists('color_primario', $datos) && ! $datos['color_primario']) {
+            $datos['color_primario'] = null;
+            $datos['color_secundario'] = null;
+        }
+
+        return $datos;
     }
 
     private function textoNormalizado(mixed $texto): ?string

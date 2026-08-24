@@ -79,6 +79,11 @@ class HerramientaController extends Controller
                 $herramienta->unidades()->create([
                     'marca_id' => $unidad['marca_id'],
                     'ubicacion_id' => $unidad['ubicacion_id'],
+                    'color_primario' => $unidad['color_primario'] ?? null,
+                    'color_secundario' => $unidad['color_primario']
+                        ? ($unidad['color_secundario'] ?? null)
+                        : null,
+                    'tamano' => $this->textoNormalizado($unidad['tamano'] ?? null),
                     'fecha_calibracion' => $unidad['fecha_calibracion'] ?? null,
                     'proxima_calibracion' => $unidad['proxima_calibracion'] ?? null,
                     'observaciones' => $this->textoNormalizado($unidad['observaciones'] ?? null),
@@ -226,6 +231,18 @@ class HerramientaController extends Controller
                     fn ($consulta) => $consulta->where('estado', Ubicacion::ESTADO_ACTIVO),
                 ),
             ],
+            'unidades.*.color_primario' => [
+                'nullable',
+                'string',
+                Rule::in(HerramientaUnidad::COLORES),
+            ],
+            'unidades.*.color_secundario' => [
+                'nullable',
+                'string',
+                Rule::in(HerramientaUnidad::COLORES),
+                'different:unidades.*.color_primario',
+            ],
+            'unidades.*.tamano' => ['nullable', 'string', 'max:50'],
             'unidades.*.fecha_calibracion' => ['nullable', 'date'],
             'unidades.*.proxima_calibracion' => ['nullable', 'date'],
             'unidades.*.observaciones' => ['nullable', 'string', 'max:1000'],

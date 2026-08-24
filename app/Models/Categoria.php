@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 
 class Categoria extends Model
@@ -22,6 +24,7 @@ class Categoria extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
+        'parent_id',
         'nombre',
         'descripcion',
         'estado',
@@ -38,6 +41,37 @@ class Categoria extends Model
     public function estaActiva(): bool
     {
         return $this->estado === self::ESTADO_ACTIVO;
+    }
+
+    public function padre(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function hijos(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
+    }
+
+    public function tieneHijosActivos(): bool
+    {
+        return $this->hijos()->where('estado', self::ESTADO_ACTIVO)->exists();
+    }
+
+    public function creariaCiclo(?string $parentId): bool
+    {
+        $visitados = [];
+
+        while ($parentId) {
+            if ($parentId === $this->id || isset($visitados[$parentId])) {
+                return true;
+            }
+
+            $visitados[$parentId] = true;
+            $parentId = self::query()->whereKey($parentId)->value('parent_id');
+        }
+
+        return false;
     }
 
     public function tieneHerramientasActivas(): bool

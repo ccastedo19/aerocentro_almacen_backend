@@ -249,7 +249,7 @@ class PrestamoController extends Controller
         return DetallePrestamo::query()
             ->with([
                 'prestamo:id,mecanico_id,fecha_prestamo,usuario_id',
-                'unidad:id,herramienta_id,marca_id,ubicacion_id,estado,observaciones',
+                'unidad:id,herramienta_id,marca_id,ubicacion_id,color_primario,color_secundario,tamano,estado,observaciones',
                 'unidad.herramienta:id,nombre,categoria_id',
                 'unidad.herramienta.categoria:id,nombre',
                 'unidad.marca:id,nombre',

@@ -77,7 +77,7 @@ class InicioController extends Controller
             ->with([
                 'prestamo:id,mecanico_id,fecha_prestamo',
                 'prestamo.mecanico:id,nombre,apellido',
-                'unidad:id,herramienta_id,marca_id,ubicacion_id',
+                'unidad:id,herramienta_id,marca_id,ubicacion_id,tamano',
                 'unidad.herramienta:id,nombre',
                 'unidad.marca:id,nombre',
                 'unidad.ubicacion:id,nombre',
