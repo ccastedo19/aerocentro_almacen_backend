@@ -27,6 +27,7 @@ class HerramientaUnidad extends Model
         'blanco',
         'negro',
         'naranja',
+        'camuflado',
     ];
 
     protected $table = 'herramientas_unidades';

@@ -40,7 +40,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('categorias', CategoriaController::class);
 
         Route::patch('/ubicaciones/{ubicacion}/estado', [UbicacionController::class, 'cambiarEstado']);
-        Route::apiResource('ubicaciones', UbicacionController::class);
+        Route::apiResource('ubicaciones', UbicacionController::class)
+            ->parameters(['ubicaciones' => 'ubicacion']);
 
         Route::patch('/marcas/{marca}/estado', [MarcaController::class, 'cambiarEstado']);
         Route::apiResource('marcas', MarcaController::class);
