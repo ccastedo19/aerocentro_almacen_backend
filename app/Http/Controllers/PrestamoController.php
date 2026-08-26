@@ -64,7 +64,6 @@ class PrestamoController extends Controller
         ]);
 
         $unidades = $this->consultaUnidadesDisponibles($filtros['buscar'] ?? null)
-            ->limit(300)
             ->get();
 
         return response()->json([
