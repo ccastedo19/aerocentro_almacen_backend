@@ -19,7 +19,9 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['https://aerocentro-almacen-frontend.vercel.app/'],
+    'allowed_origins' => [
+        'https://aerocentro-almacen-frontend.vercel.app',
+    ],
 
     'allowed_origins_patterns' => [],
 
