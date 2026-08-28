@@ -14,8 +14,6 @@ use Throwable;
 
 class MecanicoController extends Controller
 {
-    public function __construct(private readonly MecanicoImagenService $imagenService) {}
-
     public function index(Request $request): JsonResponse
     {
         $filtros = $request->validate([
@@ -66,7 +64,7 @@ class MecanicoController extends Controller
 
                 if ($request->hasFile('imagen')) {
                     $mecanico->update([
-                        'imagen' => $this->imagenService->subir(
+                        'imagen' => $this->imagenes()->subir(
                             $request->file('imagen'),
                             $mecanico->id,
                         ),
@@ -107,12 +105,12 @@ class MecanicoController extends Controller
         try {
             $mecanico = DB::transaction(function () use ($request, $mecanico, $datos) {
                 if ($request->hasFile('imagen')) {
-                    $datos['imagen'] = $this->imagenService->subir(
+                    $datos['imagen'] = $this->imagenes()->subir(
                         $request->file('imagen'),
                         $mecanico->id,
                     );
                 } elseif ($request->boolean('eliminar_imagen') && $mecanico->imagen) {
-                    $this->imagenService->eliminar($mecanico->id);
+                    $this->imagenes()->eliminar($mecanico->id);
                     $datos['imagen'] = null;
                 }
 
@@ -138,7 +136,7 @@ class MecanicoController extends Controller
 
         if ($mecanico->imagen) {
             try {
-                $this->imagenService->eliminar($mecanico->id);
+                $this->imagenes()->eliminar($mecanico->id);
                 $mecanico->update(['imagen' => null]);
             } catch (Throwable) {
                 // El mecanico ya quedo eliminado; no bloqueamos la operacion por Cloudinary.
@@ -176,6 +174,11 @@ class MecanicoController extends Controller
             'message' => 'Estado del mecanico actualizado correctamente.',
             'mecanico' => $mecanico->fresh()->load('usuario:id,nombre,apellido'),
         ]);
+    }
+
+    private function imagenes(): MecanicoImagenService
+    {
+        return app(MecanicoImagenService::class);
     }
 
     private function datosValidados(Request $request, ?Mecanico $mecanico = null): array

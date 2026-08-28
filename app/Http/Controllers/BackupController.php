@@ -62,6 +62,10 @@ class BackupController extends Controller
     {
         try {
             $backup = $this->backups->crear($request->user());
+        } catch (RuntimeException $excepcion) {
+            return response()->json([
+                'message' => $excepcion->getMessage(),
+            ], 422);
         } catch (Throwable) {
             return response()->json([
                 'message' => 'No se pudo generar el backup.',

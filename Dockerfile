@@ -8,9 +8,9 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install \
     pdo_mysql \
     zip \
-    gd
-
-RUN a2enmod rewrite
+    gd \
+    && a2enmod rewrite headers \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -20,10 +20,11 @@ COPY . .
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-RUN sed -i 's!/var/www/html!/var/www/html/public!g' \
-    /etc/apache2/sites-available/000-default.conf
+COPY docker/php.ini /usr/local/etc/php/conf.d/uploads.ini
+COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
 
-RUN chown -R www-data:www-data storage bootstrap/cache
+RUN chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R ug+rwx storage bootstrap/cache
 
 COPY start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
