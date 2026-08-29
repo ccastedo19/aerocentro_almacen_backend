@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Models\Backup;
 use App\Models\User;
 use Cloudinary\Cloudinary;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PDO;
@@ -22,6 +22,12 @@ class DatabaseBackupService
     private const CARPETA_CLOUDINARY = 'Backups Aerocentro';
 
     private const PREFIJO_CLOUDINARY = 'cloudinary:';
+
+    private const URL_CLOUDINARY = 'https://res.cloudinary.com/';
+
+    private const SEGMENTO_RAW = '/raw/upload/';
+
+    private const MENSAJE_ARCHIVO_PERDIDO = 'El archivo de este backup ya no esta en el servidor porque se genero antes de guardar las copias en la nube. Genera uno nuevo o sube tu .sql.';
 
     /**
      * @var list<string>
@@ -69,17 +75,18 @@ class DatabaseBackupService
         return $backup;
     }
 
-    public function guardarArchivo(User $usuario, UploadedFile $archivo): Backup
+    public function guardarContenido(User $usuario, string $sql, string $nombre): Backup
     {
-        $this->validarArchivoSql($archivo);
+        $this->validarNombreSql($nombre);
+        $this->validarContenidoSql($sql);
 
         $backup = new Backup;
         $backup->id = (string) Str::uuid();
 
         $ruta = self::CARPETA.'/'.$backup->id.'.sql';
-        $nombre = $this->nombreSeguro($archivo->getClientOriginalName());
 
-        $archivo->storeAs(self::CARPETA, $backup->id.'.sql', self::DISK);
+        Storage::disk(self::DISK)->makeDirectory(self::CARPETA);
+        Storage::disk(self::DISK)->put($ruta, $sql);
 
         $absoluta = Storage::disk(self::DISK)->path($ruta);
 
@@ -87,17 +94,15 @@ class DatabaseBackupService
             throw new RuntimeException('No se pudo guardar el archivo de backup.');
         }
 
-        $this->validarContenidoSql((string) file_get_contents($absoluta));
-
         $rutaGuardada = $this->persistirArchivo($absoluta, $backup->id, $ruta);
 
         $backup->fill([
             'usuario_id' => $usuario->id,
             'fecha' => now(),
-            'nombre_archivo' => $nombre,
+            'nombre_archivo' => $this->nombreSeguro($nombre),
             'ruta_archivo' => $rutaGuardada,
-            'tamano' => filesize($absoluta) ?: 0,
-            'hash_sha256' => hash_file('sha256', $absoluta) ?: null,
+            'tamano' => strlen($sql),
+            'hash_sha256' => hash('sha256', $sql),
             'estado' => Backup::ESTADO_ACTIVO,
         ]);
         $backup->save();
@@ -114,13 +119,7 @@ class DatabaseBackupService
             throw new RuntimeException('El backup no esta disponible.');
         }
 
-        $absoluta = $this->rutaAbsoluta($backup->ruta_archivo);
-
-        if (! is_file($absoluta)) {
-            throw new RuntimeException('No se encontro el archivo del backup.');
-        }
-
-        $sql = (string) file_get_contents($absoluta);
+        $sql = $this->contenido($backup);
         $this->validarContenidoSql($sql);
 
         $pdo = DB::connection()->getPdo();
@@ -141,13 +140,70 @@ class DatabaseBackupService
         }
     }
 
-    public function rutaAbsoluta(string $ruta): string
+    public function contenido(Backup $backup): string
     {
+        $ruta = (string) $backup->ruta_archivo;
+
+        if ($ruta === '') {
+            throw new RuntimeException(self::MENSAJE_ARCHIVO_PERDIDO);
+        }
+
         if ($this->esRutaCloudinary($ruta)) {
             return $this->descargarCloudinary($ruta);
         }
 
-        return Storage::disk(self::DISK)->path($ruta);
+        $absoluta = Storage::disk(self::DISK)->path($ruta);
+
+        if (! is_file($absoluta)) {
+            throw new RuntimeException(self::MENSAJE_ARCHIVO_PERDIDO);
+        }
+
+        return (string) file_get_contents($absoluta);
+    }
+
+    public function estaDisponible(Backup $backup): bool
+    {
+        $ruta = (string) $backup->ruta_archivo;
+
+        if ($ruta === '') {
+            return false;
+        }
+
+        if ($this->esRutaCloudinary($ruta)) {
+            return true;
+        }
+
+        return is_file(Storage::disk(self::DISK)->path($ruta));
+    }
+
+    public function eliminarArchivo(Backup $backup): void
+    {
+        $ruta = (string) $backup->ruta_archivo;
+
+        if ($ruta === '') {
+            return;
+        }
+
+        if (! $this->esRutaCloudinary($ruta)) {
+            Storage::disk(self::DISK)->delete($ruta);
+
+            return;
+        }
+
+        $publicId = $this->publicIdCloudinary($ruta);
+
+        if ($publicId === null || ! $this->cloudinaryConfigurado()) {
+            return;
+        }
+
+        try {
+            $this->cloudinary()->uploadApi()->destroy($publicId, [
+                'resource_type' => 'raw',
+                'invalidate' => true,
+            ]);
+        } catch (Throwable) {
+            // El registro se borra igual aunque el archivo remoto ya no exista.
+        }
     }
 
     private function persistirArchivo(string $absoluta, string $backupId, string $rutaLocal): string
@@ -172,6 +228,12 @@ class DatabaseBackupService
             );
         }
 
+        $url = is_string($resultado['secure_url'] ?? null) ? $resultado['secure_url'] : '';
+
+        if ($url !== '') {
+            return $url;
+        }
+
         $publicId = is_string($resultado['public_id'] ?? null)
             ? $resultado['public_id']
             : self::CARPETA_CLOUDINARY.'/'.$backupId;
@@ -185,22 +247,23 @@ class DatabaseBackupService
             ? $this->urlRawCloudinary(substr($ruta, strlen(self::PREFIJO_CLOUDINARY)))
             : $ruta;
 
-        $temporal = tempnam(sys_get_temp_dir(), 'bkp-');
-
-        if ($temporal === false) {
-            throw new RuntimeException('No se pudo crear el archivo temporal del backup.');
+        try {
+            $respuesta = Http::timeout(60)->get($url);
+        } catch (Throwable $excepcion) {
+            throw new RuntimeException(
+                'No se pudo descargar el archivo del backup desde Cloudinary.',
+                0,
+                $excepcion,
+            );
         }
 
-        $destino = $temporal.'.sql';
-        $contenido = @file_get_contents($url);
-
-        if ($contenido === false) {
-            throw new RuntimeException('No se encontro el archivo del backup en Cloudinary.');
+        if (! $respuesta->successful()) {
+            throw new RuntimeException(
+                'No se pudo descargar el archivo del backup desde Cloudinary (HTTP '.$respuesta->status().').',
+            );
         }
 
-        file_put_contents($destino, $contenido);
-
-        return $destino;
+        return $respuesta->body();
     }
 
     private function urlRawCloudinary(string $publicId): string
@@ -208,13 +271,31 @@ class DatabaseBackupService
         $cloud = (string) config('services.cloudinary.cloud_name');
         $partes = array_map('rawurlencode', explode('/', $publicId));
 
-        return 'https://res.cloudinary.com/'.$cloud.'/raw/upload/'.implode('/', $partes);
+        return self::URL_CLOUDINARY.$cloud.self::SEGMENTO_RAW.implode('/', $partes);
+    }
+
+    private function publicIdCloudinary(string $ruta): ?string
+    {
+        if (str_starts_with($ruta, self::PREFIJO_CLOUDINARY)) {
+            return substr($ruta, strlen(self::PREFIJO_CLOUDINARY));
+        }
+
+        $posicion = strpos($ruta, self::SEGMENTO_RAW);
+
+        if ($posicion === false) {
+            return null;
+        }
+
+        $resto = substr($ruta, $posicion + strlen(self::SEGMENTO_RAW));
+        $resto = preg_replace('#^v\d+/#', '', $resto) ?? $resto;
+
+        return rawurldecode($resto);
     }
 
     private function esRutaCloudinary(string $ruta): bool
     {
         return str_starts_with($ruta, self::PREFIJO_CLOUDINARY)
-            || str_starts_with($ruta, 'https://res.cloudinary.com/');
+            || str_starts_with($ruta, self::URL_CLOUDINARY);
     }
 
     private function cloudinaryConfigurado(): bool
@@ -453,9 +534,9 @@ class DatabaseBackupService
         return $sentencias;
     }
 
-    private function validarArchivoSql(UploadedFile $archivo): void
+    private function validarNombreSql(string $nombre): void
     {
-        $extension = strtolower((string) $archivo->getClientOriginalExtension());
+        $extension = strtolower((string) pathinfo($nombre, PATHINFO_EXTENSION));
 
         if (! in_array($extension, ['sql', 'txt'], true)) {
             throw new RuntimeException('El archivo debe ser .sql.');

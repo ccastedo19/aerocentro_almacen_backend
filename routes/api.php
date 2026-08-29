@@ -84,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/backups', [BackupController::class, 'store']);
             Route::post('/backups/descargar', [BackupController::class, 'descargar']);
             Route::post('/backups/{backup}/restaurar', [BackupController::class, 'restaurar']);
+            Route::delete('/backups/{backup}', [BackupController::class, 'destroy']);
         });
     });
 });
