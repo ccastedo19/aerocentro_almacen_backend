@@ -7,6 +7,7 @@ use App\Models\User;
 use Cloudinary\Cloudinary;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PDO;
@@ -43,6 +44,11 @@ class DatabaseBackupService
         'sessions',
         'password_reset_tokens',
     ];
+
+    /**
+     * @var array<string, list<string>>
+     */
+    private array $generadasPorTabla = [];
 
     public function crear(User $usuario): Backup
     {
@@ -124,14 +130,22 @@ class DatabaseBackupService
 
         $pdo = DB::connection()->getPdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
+        $actual = '';
 
         try {
             foreach ($this->separarSentencias($sql) as $sentencia) {
-                $pdo->exec($sentencia);
+                $actual = $this->adaptarSentencia($sentencia);
+                $pdo->exec($actual);
             }
         } catch (Throwable $excepcion) {
+            Log::error('Fallo al restaurar un backup.', [
+                'backup_id' => $backup->id,
+                'sentencia' => Str::limit($actual, 300),
+                'error' => $excepcion->getMessage(),
+            ]);
+
             throw new RuntimeException(
-                'No se pudo restaurar el backup. Revisa que el archivo SQL sea valido.',
+                'No se pudo restaurar el backup: '.Str::limit($excepcion->getMessage(), 300),
                 0,
                 $excepcion,
             );
@@ -354,14 +368,22 @@ class DatabaseBackupService
         fwrite($handle, "DROP TABLE IF EXISTS {$identificador};\n");
         fwrite($handle, $creacion['Create Table'].";\n\n");
 
+        $nombres = $this->columnas($tabla);
+
+        if ($nombres === []) {
+            fwrite($handle, "\n");
+
+            return;
+        }
+
         $columnas = array_map(
             fn (string $columna) => $this->identificar($columna),
-            $this->columnas($tabla),
+            $nombres,
         );
         $listaColumnas = implode(', ', $columnas);
         $lote = [];
 
-        $consulta = $pdo->query('SELECT * FROM '.$identificador);
+        $consulta = $pdo->query('SELECT '.$listaColumnas.' FROM '.$identificador);
 
         if ($consulta === false) {
             throw new RuntimeException("No se pudieron leer los datos de {$tabla}.");
@@ -449,11 +471,201 @@ class DatabaseBackupService
     }
 
     /**
+     * Omite las columnas generadas (`storedAs`): MySQL rechaza el INSERT si se
+     * les manda un valor explicito, y las recalcula sola al restaurar.
+     *
      * @return list<string>
      */
     private function columnas(string $tabla): array
     {
-        return DB::connection()->getSchemaBuilder()->getColumnListing($tabla);
+        $filas = DB::select(
+            'SELECT COLUMN_NAME AS nombre
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = ?
+               AND (GENERATION_EXPRESSION IS NULL OR GENERATION_EXPRESSION = \'\')
+             ORDER BY ORDINAL_POSITION',
+            [$tabla],
+        );
+
+        $columnas = [];
+
+        foreach ($filas as $fila) {
+            $nombre = (string) ((array) $fila)['nombre'];
+
+            if ($nombre !== '') {
+                $columnas[] = $nombre;
+            }
+        }
+
+        return $columnas;
+    }
+
+    /**
+     * Los backups anteriores incluyen las columnas generadas en sus INSERT y
+     * MySQL los rechaza, asi que se quitan antes de ejecutarlos.
+     */
+    private function adaptarSentencia(string $sentencia): string
+    {
+        $patron = '/^INSERT\s+INTO\s+`([^`]+)`\s*\(([^)]*)\)\s*VALUES\s*/is';
+
+        if (preg_match($patron, $sentencia, $coincidencias) !== 1) {
+            return $sentencia;
+        }
+
+        $generadas = $this->columnasGeneradas($coincidencias[1]);
+
+        if ($generadas === []) {
+            return $sentencia;
+        }
+
+        $columnas = array_map(
+            fn (string $columna) => trim(trim($columna), '`'),
+            explode(',', $coincidencias[2]),
+        );
+        $conservar = array_keys(array_filter(
+            $columnas,
+            fn (string $columna) => ! in_array($columna, $generadas, true),
+        ));
+
+        if (count($conservar) === count($columnas) || $conservar === []) {
+            return $sentencia;
+        }
+
+        $tuplas = $this->separarTuplas(substr($sentencia, strlen($coincidencias[0])));
+
+        if ($tuplas === null) {
+            return $sentencia;
+        }
+
+        $filas = [];
+
+        foreach ($tuplas as $tupla) {
+            if (count($tupla) !== count($columnas)) {
+                return $sentencia;
+            }
+
+            $filas[] = '('.implode(', ', array_map(
+                fn (int $indice) => $tupla[$indice],
+                $conservar,
+            )).')';
+        }
+
+        $listaColumnas = implode(', ', array_map(
+            fn (int $indice) => $this->identificar($columnas[$indice]),
+            $conservar,
+        ));
+
+        return 'INSERT INTO '.$this->identificar($coincidencias[1])
+            ." ({$listaColumnas}) VALUES\n".implode(",\n", $filas);
+    }
+
+    /**
+     * @return list<list<string>>|null
+     */
+    private function separarTuplas(string $valores): ?array
+    {
+        $tuplas = [];
+        $actual = [];
+        $buffer = '';
+        $profundidad = 0;
+        $enCadena = false;
+        $comilla = '';
+        $largo = strlen($valores);
+
+        for ($i = 0; $i < $largo; $i++) {
+            $char = $valores[$i];
+
+            if ($enCadena) {
+                $buffer .= $char;
+
+                if ($char === '\\' && $i + 1 < $largo) {
+                    $i++;
+                    $buffer .= $valores[$i];
+
+                    continue;
+                }
+
+                if ($char === $comilla) {
+                    $enCadena = false;
+                }
+
+                continue;
+            }
+
+            if ($char === "'" || $char === '"') {
+                $enCadena = true;
+                $comilla = $char;
+                $buffer .= $char;
+
+                continue;
+            }
+
+            if ($char === '(') {
+                $profundidad++;
+
+                if ($profundidad === 1) {
+                    $actual = [];
+                    $buffer = '';
+
+                    continue;
+                }
+            }
+
+            if ($char === ')') {
+                $profundidad--;
+
+                if ($profundidad === 0) {
+                    $actual[] = trim($buffer);
+                    $tuplas[] = $actual;
+                    $buffer = '';
+
+                    continue;
+                }
+            }
+
+            if ($char === ',' && $profundidad === 1) {
+                $actual[] = trim($buffer);
+                $buffer = '';
+
+                continue;
+            }
+
+            if ($profundidad > 0) {
+                $buffer .= $char;
+            }
+        }
+
+        if ($profundidad !== 0 || $enCadena || $tuplas === []) {
+            return null;
+        }
+
+        return $tuplas;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function columnasGeneradas(string $tabla): array
+    {
+        if (! array_key_exists($tabla, $this->generadasPorTabla)) {
+            $filas = DB::select(
+                'SELECT COLUMN_NAME AS nombre
+                 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = ?
+                   AND GENERATION_EXPRESSION IS NOT NULL
+                   AND GENERATION_EXPRESSION <> \'\'',
+                [$tabla],
+            );
+
+            $this->generadasPorTabla[$tabla] = array_map(
+                fn ($fila) => (string) ((array) $fila)['nombre'],
+                $filas,
+            );
+        }
+
+        return $this->generadasPorTabla[$tabla];
     }
 
     /**
