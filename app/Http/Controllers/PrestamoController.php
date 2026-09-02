@@ -215,6 +215,25 @@ class PrestamoController extends Controller
         ]);
     }
 
+    public function devolverAbsoluto(): JsonResponse
+    {
+        $detalles = DetallePrestamo::query()
+            ->where('estado', DetallePrestamo::ESTADO_EN_CURSO)
+            ->get();
+
+        if ($detalles->isEmpty()) {
+            throw ValidationException::withMessages([
+                'prestamo' => ['No hay herramientas prestadas para devolver.'],
+            ]);
+        }
+
+        $this->devolverDetalles($detalles);
+
+        return response()->json([
+            'message' => 'Todas las herramientas del almacén fueron devueltas correctamente.',
+        ]);
+    }
+
     private function consultaUnidadesDisponibles(?string $buscar)
     {
         return HerramientaUnidad::query()
