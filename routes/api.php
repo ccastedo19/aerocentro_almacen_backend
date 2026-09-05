@@ -72,6 +72,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/prestamos/en-uso', [PrestamoController::class, 'enUso']);
         Route::get('/prestamos/mecanicos/{mecanico}', [PrestamoController::class, 'activosDeMecanico']);
         Route::post('/prestamos', [PrestamoController::class, 'store']);
+        Route::post('/prestamos/intercambiar', [PrestamoController::class, 'intercambiar']);
+        Route::post('/prestamos/detalles/devolver-multiples', [PrestamoController::class, 'devolverMultiples']);
         Route::post('/prestamos/detalles/{detalle_prestamo}/devolver', [PrestamoController::class, 'devolverDetalle']);
         Route::post('/prestamos/mecanicos/{mecanico}/devolver-todas', [PrestamoController::class, 'devolverTodas']);
         Route::post('/prestamos/devolver-todas-absoluto', [PrestamoController::class, 'devolverAbsoluto']);

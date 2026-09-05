@@ -184,12 +184,131 @@ class PrestamoController extends Controller
         ], 201);
     }
 
+    public function devolverMultiples(Request $request): JsonResponse
+    {
+        $validados = $request->validate([
+            'detalles_ids' => ['required', 'array', 'min:1'],
+            'detalles_ids.*' => ['required', 'string', 'exists:detalles_prestamos,id'],
+        ]);
+
+        $detalles = DetallePrestamo::query()
+            ->whereIn('id', $validados['detalles_ids'])
+            ->where('estado', DetallePrestamo::ESTADO_EN_CURSO)
+            ->get();
+
+        if ($detalles->isEmpty()) {
+            throw ValidationException::withMessages([
+                'detalles_ids' => ['No se encontraron herramientas en préstamo para devolver.'],
+            ]);
+        }
+
+        $this->devolverDetalles($detalles);
+
+        return response()->json([
+            'message' => $detalles->count() === 1
+                ? 'Herramienta devuelta correctamente.'
+                : 'Herramientas devueltas correctamente.',
+            'devueltas' => $detalles->count(),
+        ]);
+    }
+
     public function devolverDetalle(DetallePrestamo $detallePrestamo): JsonResponse
     {
         $this->devolverDetalles(collect([$detallePrestamo]));
 
         return response()->json([
             'message' => 'Herramienta devuelta correctamente.',
+        ]);
+    }
+
+    public function intercambiar(Request $request): JsonResponse
+    {
+        $validados = $request->validate([
+            'mecanico_destino_id' => ['required', 'uuid', Rule::exists('mecanicos', 'id')],
+            'unidades_ids' => ['required', 'array', 'min:1'],
+            'unidades_ids.*' => ['required', 'uuid', Rule::exists('herramientas_unidades', 'id')],
+        ]);
+
+        $mecanicoDestino = Mecanico::query()->findOrFail($validados['mecanico_destino_id']);
+        $this->asegurarMecanicoActivo($mecanicoDestino);
+
+        DB::transaction(function () use ($request, $mecanicoDestino, $validados) {
+            $unidades = HerramientaUnidad::query()
+                ->with(['herramienta'])
+                ->whereIn('id', $validados['unidades_ids'])
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            $detallesOrigen = DetallePrestamo::query()
+                ->with(['prestamo.mecanico'])
+                ->whereIn('herramienta_unidad_id', $validados['unidades_ids'])
+                ->where('estado', DetallePrestamo::ESTADO_EN_CURSO)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('herramienta_unidad_id');
+
+            $ahora = now();
+            $detallesParaCrear = [];
+
+            foreach ($validados['unidades_ids'] as $unidadId) {
+                $unidad = $unidades->get($unidadId);
+                $detalleOrigen = $detallesOrigen->get($unidadId);
+
+                if (! $detalleOrigen) {
+                    $nombre = $unidad?->herramienta?->nombre ?? 'desconocida';
+                    throw ValidationException::withMessages([
+                        'unidades_ids' => ["La unidad {$nombre} no se encuentra en préstamo activo."],
+                    ]);
+                }
+
+                $mecanicoOrigen = $detalleOrigen->prestamo?->mecanico;
+                if ($mecanicoOrigen && $mecanicoOrigen->id === $mecanicoDestino->id) {
+                    $nombre = $unidad->herramienta?->nombre ?? 'desconocida';
+                    throw ValidationException::withMessages([
+                        'unidades_ids' => ["La unidad {$nombre} ya pertenece a este mecánico."],
+                    ]);
+                }
+
+                $nombreOrigen = $mecanicoOrigen ? $mecanicoOrigen->nombre_completo : 'otro mecánico';
+
+                // 1. Devolver de mecánico origen
+                $detalleOrigen->update([
+                    'estado' => DetallePrestamo::ESTADO_DEVUELTO,
+                    'fecha_devolucion' => $ahora,
+                    'observaciones_devolucion' => "Intercambiada a {$mecanicoDestino->nombre_completo}",
+                ]);
+
+                $detallesParaCrear[] = [
+                    'unidad_id' => $unidad->id,
+                    'nombre_origen' => $nombreOrigen,
+                ];
+            }
+
+            // 2. Crear préstamo para mecánico destino
+            $prestamoDestino = Prestamo::create([
+                'mecanico_id' => $mecanicoDestino->id,
+                'usuario_id' => $request->user()->id,
+                'fecha_prestamo' => $ahora,
+                'observaciones' => 'Intercambio de préstamo',
+            ]);
+
+            foreach ($detallesParaCrear as $item) {
+                $prestamoDestino->detalles()->create([
+                    'herramienta_unidad_id' => $item['unidad_id'],
+                    'estado' => DetallePrestamo::ESTADO_EN_CURSO,
+                ]);
+
+                $unidades->get($item['unidad_id'])->update([
+                    'estado' => HerramientaUnidad::ESTADO_PRESTADA,
+                ]);
+            }
+        });
+
+        return response()->json([
+            'message' => count($validados['unidades_ids']) === 1
+                ? 'Préstamo intercambiado correctamente.'
+                : 'Préstamos intercambiados correctamente.',
         ]);
     }
 
