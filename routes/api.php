@@ -11,6 +11,7 @@ use App\Http\Controllers\HistorialMovimientoController;
 use App\Http\Controllers\InicioController;
 use App\Http\Controllers\MarcaController;
 use App\Http\Controllers\MecanicoController;
+use App\Http\Controllers\OrdenRecepcionController;
 use App\Http\Controllers\PrestamoController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\UbicacionController;
@@ -64,6 +65,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::patch('/clientes/{cliente}/estado', [ClienteController::class, 'cambiarEstado']);
         Route::apiResource('clientes', ClienteController::class);
+
+        Route::get('/ordenes-recepcion/{ordenRecepcion}/pdf', [OrdenRecepcionController::class, 'pdf']);
+        Route::post('/ordenes-recepcion/{ordenRecepcion}/finalizar', [OrdenRecepcionController::class, 'finalizar']);
+        Route::apiResource('ordenes-recepcion', OrdenRecepcionController::class)
+            ->parameters(['ordenes-recepcion' => 'ordenRecepcion']);
 
         Route::get('/prestamos/historial', [HistorialMovimientoController::class, 'index']);
         Route::get('/prestamos/historial/general', [HistorialMovimientoController::class, 'general']);
