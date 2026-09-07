@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\HerramientaCombinadaController;
 use App\Http\Controllers\HerramientaController;
 use App\Http\Controllers\HerramientaUnidadController;
@@ -60,6 +61,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/herramientas-combinadas/{combinada}/estado', [HerramientaCombinadaController::class, 'cambiarEstado']);
         Route::apiResource('herramientas-combinadas', HerramientaCombinadaController::class)
             ->parameters(['herramientas-combinadas' => 'combinada']);
+
+        Route::patch('/clientes/{cliente}/estado', [ClienteController::class, 'cambiarEstado']);
+        Route::apiResource('clientes', ClienteController::class);
 
         Route::get('/prestamos/historial', [HistorialMovimientoController::class, 'index']);
         Route::get('/prestamos/historial/general', [HistorialMovimientoController::class, 'general']);
