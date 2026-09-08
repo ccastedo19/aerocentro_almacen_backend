@@ -187,7 +187,8 @@ class OrdenRecepcionController extends Controller
         ]);
 
         $pdf = Pdf::loadView('pdf.orden_recepcion', ['orden' => $ordenConDatos])
-            ->setPaper('letter', 'portrait');
+            ->setPaper('letter', 'portrait')
+            ->setOption(['isPhpEnabled' => true, 'isRemoteEnabled' => true]);
 
         return response()->json([
             'message'  => 'Orden finalizada correctamente.',
@@ -207,7 +208,8 @@ class OrdenRecepcionController extends Controller
         ]);
 
         $pdf = Pdf::loadView('pdf.orden_recepcion', ['orden' => $ordenConDatos])
-            ->setPaper('letter', 'portrait');
+            ->setPaper('letter', 'portrait')
+            ->setOption(['isPhpEnabled' => true, 'isRemoteEnabled' => true]);
 
         return response()->json([
             'pdf_base64' => base64_encode($pdf->output()),
