@@ -284,7 +284,7 @@
                     @endif
                 </div>
                 <div class="title-sub">
-                    FORMULARIO: H12-INS-01
+                    FORMULARIO: {{ $orden->numero_orden }}
                 </div>
             </td>
 
