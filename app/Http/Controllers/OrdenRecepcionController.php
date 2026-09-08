@@ -18,6 +18,7 @@ class OrdenRecepcionController extends Controller
     {
         $filtros = $request->validate([
             'buscar'     => ['nullable', 'string', 'max:150'],
+            'tipo'       => ['nullable', 'string', Rule::in(OrdenRecepcion::TIPOS)],
             'estado'     => ['nullable', 'integer', Rule::in([
                 OrdenRecepcion::ESTADO_BORRADOR,
                 OrdenRecepcion::ESTADO_FINALIZADO,
@@ -31,6 +32,10 @@ class OrdenRecepcionController extends Controller
                 'usuario:id,nombre,apellido',
                 'items',
             ])
+            ->when(
+                ! empty($filtros['tipo']),
+                fn ($q) => $q->where('tipo', $filtros['tipo']),
+            )
             ->when(
                 array_key_exists('estado', $filtros),
                 fn ($q) => $q->where('estado', $filtros['estado']),
@@ -60,7 +65,9 @@ class OrdenRecepcionController extends Controller
         $this->validarItems($items);
 
         $orden = DB::transaction(function () use ($request, $datos, $items) {
-            $datos['numero_orden'] = $this->generarNumeroOrden();
+            $tipo                  = $datos['tipo'] ?? OrdenRecepcion::TIPO_MOTOR;
+            $datos['tipo']         = $tipo;
+            $datos['numero_orden'] = $this->generarNumeroOrden($tipo);
             $datos['estado']       = OrdenRecepcion::ESTADO_BORRADOR;
             $datos['usuario_id']   = $request->user()->id;
 
@@ -117,6 +124,10 @@ class OrdenRecepcionController extends Controller
         }
 
         $orden = DB::transaction(function () use ($datos, $items, $ordenRecepcion) {
+            if (isset($datos['tipo']) && $datos['tipo'] !== $ordenRecepcion->tipo) {
+                $datos['numero_orden'] = $this->generarNumeroOrden($datos['tipo']);
+            }
+
             if (! ($datos['bimotor'] ?? $ordenRecepcion->bimotor)) {
                 $datos['motor_posicion'] = null;
             }
@@ -210,12 +221,11 @@ class OrdenRecepcionController extends Controller
         $req = $update ? 'sometimes' : 'required';
 
         return [
+            'tipo'           => ['sometimes', 'string', Rule::in(OrdenRecepcion::TIPOS)],
             'marca'          => [$req, 'string', Rule::in(OrdenRecepcion::MARCAS)],
             'modelo'         => [$req, 'string', 'max:100'],
             'serie'          => [$req, 'string', 'max:100'],
             'matricula'      => [$req, 'string', 'max:50'],
-            'bimotor'        => ['sometimes', 'boolean'],
-            'motor_posicion' => ['nullable', 'string', Rule::in(OrdenRecepcion::POSICIONES_MOTOR)],
             'cliente_id'     => [$req, 'uuid', 'exists:clientes,id'],
         ];
     }
@@ -225,10 +235,6 @@ class OrdenRecepcionController extends Controller
         $errors = [];
 
         foreach ($items as $index => $item) {
-            if (empty(trim($item['part_number'] ?? ''))) {
-                $errors["items.{$index}.part_number"] = ["El Part Number (P/N) es obligatorio."];
-            }
-
             if (empty(trim($item['componente'] ?? ''))) {
                 $errors["items.{$index}.componente"] = ["El componente es obligatorio."];
             }
@@ -236,10 +242,6 @@ class OrdenRecepcionController extends Controller
             $cantidad = $item['cantidad'] ?? 1;
             if (! is_numeric($cantidad) || (int) $cantidad < 1) {
                 $errors["items.{$index}.cantidad"] = ["La cantidad debe ser mayor a 0."];
-            }
-
-            if (empty(trim($item['serie'] ?? ''))) {
-                $errors["items.{$index}.serie"] = ["El número de serie (S/N) es obligatorio."];
             }
         }
 
@@ -274,22 +276,30 @@ class OrdenRecepcionController extends Controller
         $orden->items()->insert($registros);
     }
 
-    private function generarNumeroOrden(): string
+    private function generarNumeroOrden(string $tipo = OrdenRecepcion::TIPO_MOTOR): string
     {
-        $prefix = 'H12-INS-';
+        $prefix = match ($tipo) {
+            OrdenRecepcion::TIPO_NDT => 'H12-NDT-',
+            default                  => 'H12-MT-',
+        };
 
-        $ultimo = OrdenRecepcion::lockForUpdate()
+        $numeros = OrdenRecepcion::lockForUpdate()
+            ->where('tipo', $tipo)
             ->where('numero_orden', 'like', "{$prefix}%")
-            ->max('numero_orden');
+            ->pluck('numero_orden');
 
-        $siguiente = 1;
-
-        if ($ultimo) {
-            $partes    = explode('-', $ultimo);
-            $siguiente = ((int) end($partes)) + 1;
+        $max = 0;
+        foreach ($numeros as $num) {
+            $partes = explode('-', $num);
+            $val = (int) end($partes);
+            if ($val > $max) {
+                $max = $val;
+            }
         }
 
-        return sprintf('%s%03d', $prefix, $siguiente);
+        $siguiente = $max + 1;
+
+        return sprintf('%s%02d', $prefix, $siguiente);
     }
 
     private function textoNormalizado(mixed $valor): ?string

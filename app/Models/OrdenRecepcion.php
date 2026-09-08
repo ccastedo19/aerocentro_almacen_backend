@@ -17,12 +17,17 @@ class OrdenRecepcion extends Model
     const ESTADO_BORRADOR   = 1;
     const ESTADO_FINALIZADO = 2;
 
+    const TIPO_MOTOR = 'motor';
+    const TIPO_NDT   = 'ndt';
+    const TIPOS      = ['motor', 'ndt'];
+
     const MARCAS = ['lycoming', 'continental'];
 
     const POSICIONES_MOTOR = ['izquierdo', 'derecho'];
 
     protected $fillable = [
         'numero_orden',
+        'tipo',
         'marca',
         'modelo',
         'serie',
