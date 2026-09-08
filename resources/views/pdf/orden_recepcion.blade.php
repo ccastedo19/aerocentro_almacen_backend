@@ -135,7 +135,7 @@
         }
 
         .items-table thead {
-            display: table-header-group;
+            display: table-row-group;
         }
         .items-table thead tr,
         .items-table thead th {
@@ -203,7 +203,7 @@
         /* ── Firmas ────────────────────────────────────────── */
         .signatures-table {
             width: 100%;
-            margin-top: 90px;
+            margin-top: 130px;
             border-collapse: collapse;
             page-break-inside: avoid;
         }
@@ -214,7 +214,7 @@
             padding: 0 25px;
         }
         .signature-box {
-            padding-top: 5px;
+            padding-top: 8px;
             border-top: 1.5px solid #000000;
         }
         .signature-title {
@@ -399,7 +399,7 @@
                 Documento oficial emitido por el Sistema Aerocentro Almacén &bull; {{ now()->format('d/m/Y H:i:s') }}
             </td>
             <td style="text-align: right; width: 120px;">
-                Página 1 de 1
+                &nbsp;
             </td>
         </tr>
     </table>
@@ -412,7 +412,7 @@
                 $size = 7.5;
                 $width = $fontMetrics->getTextWidth($text, $font, $size);
                 $x = $canvas->get_width() - 22 - $width;
-                $y = $canvas->get_height() - 20;
+                $y = $canvas->get_height() - 26;
                 $canvas->text($x, $y, $text, $font, $size, array(0,0,0));
             });
         }
