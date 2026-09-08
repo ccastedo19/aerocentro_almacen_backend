@@ -274,9 +274,14 @@
 
             <td class="title-cell">
                 <div class="title-main">
-                    RECEPCIÓN DE MATERIALES,<br>
-                    COMPONENTES, EQUIPOS Y<br>
-                    HERRAMIENTAS
+                    @if(($orden->tipo ?? 'motor') === 'ndt')
+                        LISTADO DE PARTES ENVIADAS<br>
+                        AL TALLER DE NDT
+                    @else
+                        RECEPCIÓN DE MATERIALES,<br>
+                        COMPONENTES, EQUIPOS Y<br>
+                        HERRAMIENTAS
+                    @endif
                 </div>
                 <div class="title-sub">
                     FORMULARIO: H12-INS-01
@@ -340,11 +345,11 @@
             @foreach($orden->items as $idx => $item)
                 <tr>
                     <td class="text-center" style="font-weight: bold;">{{ $item->numero_item ?? ($idx + 1) }}</td>
-                    <td class="cell-part-number">{{ $item->part_number ?? '-' }}</td>
+                    <td class="cell-part-number">{{ !empty(trim($item->part_number ?? '')) ? $item->part_number : '-' }}</td>
                     <td class="cell-descripcion">{{ $item->componente }}</td>
                     <td class="text-center" style="font-weight: bold;">{{ $item->cantidad }}</td>
-                    <td class="cell-serie">{{ $item->serie ?? '-' }}</td>
-                    <td class="text-left">{{ $item->observacion ?? '-' }}</td>
+                    <td class="cell-serie">{{ !empty(trim($item->serie ?? '')) ? $item->serie : '-' }}</td>
+                    <td class="text-left">{{ !empty(trim($item->observacion ?? '')) ? $item->observacion : '-' }}</td>
                 </tr>
             @endforeach
 
