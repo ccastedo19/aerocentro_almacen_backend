@@ -228,7 +228,7 @@
         .signatures-table th {
             background-color: #cfdbe6;
             color: #0f172a;
-            font-size: 8px;
+            font-size: 10px;
             font-weight: bold;
             text-transform: uppercase;
             padding: 4px 4px;
