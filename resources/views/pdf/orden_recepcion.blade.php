@@ -297,7 +297,7 @@
 
             <td class="meta-cell">
                 <span class="meta-label">FECHA DE EMISIÓN:</span>
-                <span class="meta-value">{{ $orden->created_at->format('d/m/Y') }}</span>
+                <span class="meta-value">{{ $orden->created_at ? $orden->created_at->copy()->setTimezone('America/La_Paz')->format('d/m/Y') : date('d/m/Y') }}</span>
             </td>
         </tr>
     </table>
@@ -412,6 +412,12 @@
         </table>
     </div>
 
+    @php
+        $fechaEmisionPie = $orden->created_at
+            ? $orden->created_at->copy()->setTimezone('America/La_Paz')->format('d/m/Y H:i:s')
+            : now()->setTimezone('America/La_Paz')->format('d/m/Y H:i:s');
+    @endphp
+
     <!-- 5. Pie de página dinámico por script -->
     <script type="text/php">
         if (isset($pdf)) {
@@ -428,7 +434,7 @@
                 $yText = $canvas->get_height() - 14;
 
                 // Texto a la izquierda
-                $leftText = "Documento oficial emitido por el Sistema Aerocentro Almacén \xE2\x80\xA2 " . date('d/m/Y H:i:s');
+                $leftText = "Documento oficial emitido por el Sistema Aerocentro Almacén \xE2\x80\xA2 {{ $fechaEmisionPie }}";
                 $canvas->text(18, $yText, $leftText, $font, $size, $color);
 
                 // Texto a la derecha (Página X de Y)
