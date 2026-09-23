@@ -11,6 +11,7 @@ use App\Http\Controllers\HistorialMovimientoController;
 use App\Http\Controllers\InicioController;
 use App\Http\Controllers\MarcaController;
 use App\Http\Controllers\MecanicoController;
+use App\Http\Controllers\NotificacionPublicaController;
 use App\Http\Controllers\OrdenRecepcionController;
 use App\Http\Controllers\PrestamoController;
 use App\Http\Controllers\RolController;
@@ -36,6 +37,7 @@ Route::post('/login', [AuthController::class, 'login'])
 Route::prefix('publico')->group(function () {
     Route::get('/prestamos/punto', [PrestamoController::class, 'punto']);
     Route::get('/prestamos/mecanicos/{mecanico}', [PrestamoController::class, 'activosDeMecanico']);
+    Route::get('/notificaciones', [NotificacionPublicaController::class, 'publicIndex']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -93,6 +95,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/prestamos/detalles/{detalle_prestamo}/devolver', [PrestamoController::class, 'devolverDetalle']);
         Route::post('/prestamos/mecanicos/{mecanico}/devolver-todas', [PrestamoController::class, 'devolverTodas']);
         Route::post('/prestamos/devolver-todas-absoluto', [PrestamoController::class, 'devolverAbsoluto']);
+
+        Route::get('/notificacion-publica', [NotificacionPublicaController::class, 'index']);
+        Route::post('/notificacion-publica', [NotificacionPublicaController::class, 'guardar']);
+        Route::patch('/notificacion-publica/estado', [NotificacionPublicaController::class, 'cambiarEstado']);
+        Route::delete('/notificacion-publica', [NotificacionPublicaController::class, 'destroy']);
 
         Route::middleware('can:administrar-usuarios')->group(function () {
             Route::get('/roles', [RolController::class, 'index']);
