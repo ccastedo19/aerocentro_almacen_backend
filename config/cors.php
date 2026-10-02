@@ -23,14 +23,12 @@ return [
         'trim',
         explode(',', (string) env(
             'FRONTEND_URL',
-            'https://aerocentro-almacen-frontend.vercel.app',
+            'https://aerocentro.site',
         )),
     ))),
 
-    'allowed_origins_patterns' => [
-        '#^https://.*\.vercel\.app$#',
-    ],
-
+    'allowed_origins_patterns' => [],
+    
     'allowed_headers' => ['*'],
 
     'exposed_headers' => [],
