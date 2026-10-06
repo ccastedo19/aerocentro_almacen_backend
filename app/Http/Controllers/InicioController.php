@@ -54,9 +54,12 @@ class InicioController extends Controller
             7 => ['dia' => 'Dom', 'cantidad' => 0],
         ];
 
+        $inicioSemana = now()->startOfWeek();
+        $finSemana = now()->endOfWeek();
+
         $filas = DB::table('detalles_prestamos')
             ->join('prestamos', 'prestamos.id', '=', 'detalles_prestamos.prestamo_id')
-            ->where('prestamos.fecha_prestamo', '>=', now()->subDays(6)->startOfDay())
+            ->whereBetween('prestamos.fecha_prestamo', [$inicioSemana, $finSemana])
             ->selectRaw('DATE(prestamos.fecha_prestamo) as fecha, COUNT(*) as cantidad')
             ->groupBy('fecha')
             ->get();
