@@ -110,6 +110,7 @@ aerocentro_almacen_backend/
 | `herramientas_combinadas_unidades` | — | Relación pivote entre kits y unidades individuales |
 | `prestamos` | `Prestamo` | Cabecera del préstamo asignado a un mecánico en una fecha |
 | `detalles_prestamos` | `DetallePrestamo` | Detalle individual por herramienta prestada y fecha de devolución |
+| `notas` | `Nota` | Anotaciones generales del almacén en formato libre (singleton editable) |
 | `backups` | `Backup` | Registro y metadatos de respaldos SQL generados |
 
 ---
@@ -148,6 +149,10 @@ aerocentro_almacen_backend/
 ### Historial de Movimientos
 - `GET /prestamos/historial` - Filtros y reporte general de historial
 - `GET /prestamos/historial/mecanicos` & `GET /prestamos/historial/mecanicos/{mecanico}`
+
+### Notas del Almacén
+- `GET /nota` - Obtener la nota general del almacén
+- `PUT/POST /nota` - Actualizar el contenido de la nota única
 
 ### Administración (Requiere middleware `can:administrar-usuarios`)
 - `GET /roles`
