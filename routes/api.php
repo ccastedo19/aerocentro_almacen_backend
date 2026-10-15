@@ -11,6 +11,7 @@ use App\Http\Controllers\HistorialMovimientoController;
 use App\Http\Controllers\InicioController;
 use App\Http\Controllers\MarcaController;
 use App\Http\Controllers\MecanicoController;
+use App\Http\Controllers\NotaController;
 use App\Http\Controllers\NotificacionPublicaController;
 use App\Http\Controllers\OrdenRecepcionController;
 use App\Http\Controllers\PrestamoController;
@@ -100,6 +101,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/notificacion-publica', [NotificacionPublicaController::class, 'guardar']);
         Route::patch('/notificacion-publica/estado', [NotificacionPublicaController::class, 'cambiarEstado']);
         Route::delete('/notificacion-publica', [NotificacionPublicaController::class, 'destroy']);
+
+        Route::get('/nota', [NotaController::class, 'show']);
+        Route::put('/nota', [NotaController::class, 'update']);
+        Route::post('/nota', [NotaController::class, 'update']);
 
         Route::middleware('can:administrar-usuarios')->group(function () {
             Route::get('/roles', [RolController::class, 'index']);
